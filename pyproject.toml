@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "aws2-wrap"
+version = "1.2.3"
+description = "A wrapper for executing a command with AWS CLI v2 and SSO"
+authors = ["Philip Colmer <it-support@linaro.org>"]
+license = "GNU General Public License v3 (GPLv3)"
+
+[tool.poetry.dependencies]
+python = "^3.6.2"
+
+[tool.poetry.dev-dependencies]
+black = "^21.11b1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
