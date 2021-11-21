@@ -24,7 +24,14 @@ import shlex
 import subprocess
 import sys
 from datetime import datetime, timezone  # pylint: disable=wrong-import-order
-from typing import Any, Dict, List, Optional, Union, Tuple  # pylint: disable=wrong-import-order
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+    Tuple,
+)  # pylint: disable=wrong-import-order
 
 import psutil
 
@@ -47,28 +54,50 @@ def process_arguments(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(allow_abbrev=False)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--export", action="store_true", help="export credentials as environment variables")
+        "--export",
+        action="store_true",
+        help="export credentials as environment variables",
+    )
     group.add_argument(
-        "--generate", action="store_true", help="generate credentials file from the input profile")
+        "--generate",
+        action="store_true",
+        help="generate credentials file from the input profile",
+    )
     group.add_argument("--process", action="store_true")
     group.add_argument("--exec", action="store")
     profile_from_envvar = os.environ.get(
-        "AWS_PROFILE", os.environ.get(
-            "AWS_DEFAULT_PROFILE", "default"))
+        "AWS_PROFILE", os.environ.get("AWS_DEFAULT_PROFILE", "default")
+    )
     parser.add_argument(
-        "--profile", action="store", default=profile_from_envvar,
-        help="the source profile to use for creating credentials")
+        "--profile",
+        action="store",
+        default=profile_from_envvar,
+        help="the source profile to use for creating credentials",
+    )
     parser.add_argument(
-        "--outprofile", action="store", default="default",
-        help="the destination profile to save generated credentials")
+        "--outprofile",
+        action="store",
+        default="default",
+        help="the destination profile to save generated credentials",
+    )
     parser.add_argument(
-        "--configfile", action="store", default="~/.aws/config",
-        help="the config file to append resulting config")
+        "--configfile",
+        action="store",
+        default="~/.aws/config",
+        help="the config file to append resulting config",
+    )
     parser.add_argument(
-        "--credentialsfile", action="store", default="~/.aws/credentials",
-        help="the credentials file to append resulting credentials")
+        "--credentialsfile",
+        action="store",
+        default="~/.aws/credentials",
+        help="the credentials file to append resulting credentials",
+    )
     parser.add_argument(
-        "command", action="store", nargs=argparse.REMAINDER, help="a command that you want to wrap")
+        "command",
+        action="store",
+        nargs=argparse.REMAINDER,
+        help="a command that you want to wrap",
+    )
     args = parser.parse_args(argv[1:])
     return args
 
@@ -166,10 +195,12 @@ def retrieve_token_from_file(
     """
     with open(filename, mode="r", encoding="utf-8") as json_file:
         blob = json.load(json_file)
-    if ("startUrl" not in blob or
-            blob["startUrl"] != sso_start_url or
-            "region" not in blob or
-            blob["region"] != sso_region):
+    if (
+        "startUrl" not in blob
+        or blob["startUrl"] != sso_start_url
+        or "region" not in blob
+        or blob["region"] != sso_region
+    ):
         return None
     expires_at = blob["expiresAt"]
     # This will be a string like "2020-03-26T13:28:35UTC" OR "2021-01-21T23:30:56Z"
@@ -178,8 +209,12 @@ def retrieve_token_from_file(
         # Unfortunately, Python version 3.6 or earlier doesn't seem to recognise "Z" so we replace
         # that with UTC first.
         expires_at = expires_at[:-1] + "UTC"
-    datetime_format = "%Y-%m-%dT%H:%M:%S.%f%z" if "." in expires_at else "%Y-%m-%dT%H:%M:%S%z"
-    expire_datetime = datetime.strptime(expires_at.replace("UTC", "+0000"), datetime_format)
+    datetime_format = (
+        "%Y-%m-%dT%H:%M:%S.%f%z" if "." in expires_at else "%Y-%m-%dT%H:%M:%S%z"
+    )
+    expire_datetime = datetime.strptime(
+        expires_at.replace("UTC", "+0000"), datetime_format
+    )
     if expire_datetime < datetime.now(timezone.utc):
         # This has expired
         return None
@@ -235,27 +270,38 @@ def get_role_credentials(profile: ProfileDef) -> Dict[str, Any]:
     try:
         result = subprocess.run(
             [
-                "aws", "sso", "get-role-credentials",
-                "--profile", profile_name,
-                "--role-name", sso_role_name,
-                "--account-id", sso_account_id,
-                "--access-token", sso_access_token,
-                "--region", sso_region,
-                "--output", "json"
+                "aws",
+                "sso",
+                "get-role-credentials",
+                "--profile",
+                profile_name,
+                "--role-name",
+                sso_role_name,
+                "--account-id",
+                sso_account_id,
+                "--access-token",
+                sso_access_token,
+                "--region",
+                sso_region,
+                "--output",
+                "json",
             ],
             check=True,
             stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE
+            stdout=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as error:
         if error.stderr is not None:
             print(error.stderr.decode(), file=sys.stderr)
-        raise Aws2WrapError(f"Please login with 'aws sso login --profile={profile_name}'") from None
+        raise Aws2WrapError(
+            f"Please login with 'aws sso login --profile={profile_name}'"
+        ) from None
 
     output = json.loads(result.stdout)
     # convert expiration from float value to isoformat string
     output["roleCredentials"]["expiration"] = datetime.fromtimestamp(
-        float(output["roleCredentials"]["expiration"])/1000, tz=timezone.utc).isoformat()
+        float(output["roleCredentials"]["expiration"]) / 1000, tz=timezone.utc
+    ).isoformat()
     return output
 
 
@@ -282,7 +328,9 @@ def get_assumed_role_credentials(profile: ProfileDef) -> Dict[str, Dict[str, str
     # Set credentials of source_profile.
     env = os.environ.copy()
     env["AWS_ACCESS_KEY_ID"] = source_credentials["roleCredentials"]["accessKeyId"]
-    env["AWS_SECRET_ACCESS_KEY"] = source_credentials["roleCredentials"]["secretAccessKey"]
+    env["AWS_SECRET_ACCESS_KEY"] = source_credentials["roleCredentials"][
+        "secretAccessKey"
+    ]
     env["AWS_SESSION_TOKEN"] = source_credentials["roleCredentials"]["sessionToken"]
 
     # Extract role_session_name.
@@ -298,10 +346,15 @@ def get_assumed_role_credentials(profile: ProfileDef) -> Dict[str, Dict[str, str
     try:
         result = subprocess.run(
             [
-                "aws", "sts", "assume-role",
-                "--role-arn", retrieve_attribute(profile, "role_arn"),
-                "--role-session-name", role_session_name,
-                "--output", "json"
+                "aws",
+                "sts",
+                "assume-role",
+                "--role-arn",
+                retrieve_attribute(profile, "role_arn"),
+                "--role-session-name",
+                role_session_name,
+                "--output",
+                "json",
             ],
             check=True,
             stderr=subprocess.PIPE,
@@ -326,8 +379,14 @@ def get_assumed_role_credentials(profile: ProfileDef) -> Dict[str, Dict[str, str
 
 
 def process_cred_generation(  # pylint: disable=too-many-arguments
-    credentialsfile: str, configfile: str, expiration: str, outprofile: str,
-    access_key: str, secret_access_key: str, session_token: str, profile: ProfileDef
+    credentialsfile: str,
+    configfile: str,
+    expiration: str,
+    outprofile: str,
+    access_key: str,
+    secret_access_key: str,
+    session_token: str,
+    profile: ProfileDef,
 ) -> None:
     """Export the credentials and config to the specified files.
 
@@ -352,7 +411,7 @@ def process_cred_generation(  # pylint: disable=too-many-arguments
     config[outprofile] = {
         "aws_access_key_id": access_key,
         "aws_secret_access_key": secret_access_key,
-        "aws_session_token": session_token
+        "aws_session_token": session_token,
     }
     with open(credentialsfile, mode="w", encoding="utf-8") as file:
         config.write(file)
@@ -361,9 +420,7 @@ def process_cred_generation(  # pylint: disable=too-many-arguments
     config.read(configfile)
     new_config = {}
     if "region" in profile:
-        new_config = {
-            "region": retrieve_attribute(profile, "region")
-        }
+        new_config = {"region": retrieve_attribute(profile, "region")}
     config[outprofile] = new_config
     with open(configfile, mode="w", encoding="utf-8") as file:
         config.write(file)
@@ -374,8 +431,11 @@ def process_cred_generation(  # pylint: disable=too-many-arguments
 
 
 def run_command(
-    access_key: str, secret_access_key: str, session_token: str,
-    profile: ProfileDef, args: argparse.Namespace
+    access_key: str,
+    secret_access_key: str,
+    session_token: str,
+    profile: ProfileDef,
+    args: argparse.Namespace,
 ) -> int:
     """Run the specified command with the credentials set up.
 
@@ -388,17 +448,21 @@ def run_command(
     Returns:
         The exit code from the command.
     """
-    os.environ["AWS_ACCESS_KEY_ID"] = access_key
-    os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
-    os.environ["AWS_SESSION_TOKEN"] = session_token
-    status = None # ensure this is initialised
+    aws_creds = {
+        "AWS_ACCESS_KEY_ID": access_key,
+        "AWS_SECRET_ACCESS_KEY": secret_access_key,
+        "AWS_SESSION_TOKEN": session_token,
+    }
+    status = None  # ensure this is initialized
     # If region is specified in profile, also set AWS_DEFAULT_REGION
     if "AWS_DEFAULT_REGION" not in os.environ and "region" in profile:
-        os.environ["AWS_DEFAULT_REGION"] = retrieve_attribute(profile, "region")
+        aws_creds["AWS_DEFAULT_REGION"] = retrieve_attribute(profile, "region")
     if args.exec is not None:
-        status = os.system(args.exec)
+        status = subprocess.run(args.exec, env=aws_creds)
     elif args.command is not None:
-        status = os.system(' '.join(shlex.quote(x) for x in args.command))
+        status = subprocess.run(
+            " ".join(shlex.quote(x) for x in args.command), env=aws_creds
+        )
     # The return value of os.system is not simply the exit code of the process
     # see: https://mail.python.org/pipermail/python-list/2003-May/207712.html
     # noinspection PyUnboundLocalVariable
@@ -406,7 +470,7 @@ def run_command(
         return 0
     # noinspection PyUnboundLocalVariable
     if status % 256 == 0:
-        return status//256
+        return status // 256
     return status % 256
 
 
@@ -427,15 +491,17 @@ def export_credentials(
     else:
         shell_name = psutil.Process().parent().name()
 
-    is_powershell = bool(re.fullmatch(r'pwsh|pwsh.exe|powershell.exe', shell_name))
+    is_powershell = bool(re.fullmatch(r"pwsh|pwsh.exe|powershell.exe", shell_name))
 
     if is_powershell:
-        print(f"$ENV:AWS_ACCESS_KEY_ID=\"{access_key}\"")
-        print(f"$ENV:AWS_SECRET_ACCESS_KEY=\"{secret_access_key}\"")
-        print(f"$ENV:AWS_SESSION_TOKEN=\"{session_token}\"")
+        print(f'$ENV:AWS_ACCESS_KEY_ID="{access_key}"')
+        print(f'$ENV:AWS_SECRET_ACCESS_KEY="{secret_access_key}"')
+        print(f'$ENV:AWS_SESSION_TOKEN="{session_token}"')
         # If region is specified in profile, also export AWS_DEFAULT_REGION
         if "AWS_DEFAULT_REGION" not in os.environ and "region" in profile:
-            print(f"$ENV:AWS_DEFAULT_REGION=\"{retrieve_attribute(profile, 'region')}\"")
+            print(
+                f"$ENV:AWS_DEFAULT_REGION=\"{retrieve_attribute(profile, 'region')}\""
+            )
     else:
         print(f"export AWS_ACCESS_KEY_ID={access_key}")
         print(f"export AWS_SECRET_ACCESS_KEY={secret_access_key}")
@@ -445,15 +511,16 @@ def export_credentials(
             print(f"export AWS_DEFAULT_REGION={retrieve_attribute(profile, 'region')}")
 
 
-def main(argv: Optional[List[str]]=None) -> int:
-    """ Main! """
+def main(argv: Optional[List[str]] = None) -> int:
+    """Main!"""
     if argv is None:
         argv = sys.argv
     args = process_arguments(argv)
     try:
         if args.profile is None:
             raise Aws2WrapError(
-                "Please specify profile name by --profile or environment variable AWS_PROFILE")
+                "Please specify profile name by --profile or environment variable AWS_PROFILE"
+            )
 
         profile = retrieve_profile(args.profile)
 
@@ -473,24 +540,33 @@ def main(argv: Optional[List[str]]=None) -> int:
         elif args.generate:
             if args.outprofile is not None:
                 process_cred_generation(
-                    args.credentialsfile, args.configfile, expiration, args.outprofile,
-                    access_key, secret_access_key, session_token, profile)
+                    args.credentialsfile,
+                    args.configfile,
+                    expiration,
+                    args.outprofile,
+                    access_key,
+                    secret_access_key,
+                    session_token,
+                    profile,
+                )
         elif args.process:
             output = {
                 "Version": 1,
                 "AccessKeyId": access_key,
                 "SecretAccessKey": secret_access_key,
                 "SessionToken": session_token,
-                "Expiration": expiration.replace('+00:00', 'Z'),
+                "Expiration": expiration.replace("+00:00", "Z"),
             }
             print(json.dumps(output))
         else:
-            return run_command(access_key, secret_access_key, session_token, profile, args)
+            return run_command(
+                access_key, secret_access_key, session_token, profile, args
+            )
     except Aws2WrapError as error:
         print(error, file=sys.stderr)
         return 1
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main(sys.argv))
